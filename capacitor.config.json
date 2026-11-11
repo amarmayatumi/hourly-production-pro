@@ -1,0 +1,9 @@
+{
+  "appId": "com.hourlyproduction.pro",
+  "appName": "Hourly Production Pro",
+  "webDir": "www",
+  "backgroundColor": "#123D2B",
+  "android": {
+    "backgroundColor": "#123D2B"
+  }
+}
