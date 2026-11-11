@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123d2b">
+<meta name="description" content="Garments hourly production planning and simulation tool">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Hourly Production Pro</title>
+<style>
+:root{color-scheme:light dark;--bg:#f2f6f3;--card:#fff;--ink:#17251c;--muted:#66766b;--line:#dce7df;--green:#17643d;--soft:#e8f4ec;--warn:#fff5dc}
+@media(prefers-color-scheme:dark){:root{--bg:#101914;--card:#19251e;--ink:#edf5ef;--muted:#aab9ae;--line:#35463a;--green:#65c68a;--soft:#203b2b;--warn:#46391c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans Bengali",sans-serif}
+header{background:#123d2b;color:#fff;padding:22px 18px 26px;border-radius:0 0 24px 24px}
+header .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{font-size:23px;margin:0}header p{margin:7px 0 0;color:#d5e8db;font-size:13px}
+main{max-width:650px;margin:0 auto;padding:16px 14px 36px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 5px 20px #102e1c0b}
+h2{font-size:17px;margin:0 0 13px}
+label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px}
+input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{border:0;border-radius:12px;padding:12px 14px;font:inherit;font-weight:750;cursor:pointer}
+.primary{background:var(--green);color:white;width:100%;margin-top:14px}
+.secondary{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.install{background:#fff;color:#123d2b;border:1px solid #cde0d2}
+.small{font-size:12px;color:var(--muted);line-height:1.55}
+.notice{padding:11px 12px;border-radius:12px;background:var(--warn);font-size:12px;line-height:1.5;margin-top:12px}
+.hidden{display:none!important}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--soft);border-radius:12px;padding:10px}
+.stat b{display:block;font-size:18px}.stat span{font-size:11px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 7px;border-bottom:1px solid var(--line);text-align:left}th:last-child,td:last-child{text-align:right}tfoot td{font-weight:800;border-top:2px solid var(--line)}
+.pill{display:inline-block;background:var(--soft);border-radius:99px;padding:5px 9px;font-size:11px;font-weight:750;color:var(--green)}
+.history-item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+.history-item:last-child{border:0}.history-item button{padding:7px 10px;font-size:12px}
+.error{color:#d34b42;font-size:12px;margin-top:8px}
+footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 12px 22px}
+@media(min-width:560px){main{padding-top:22px}.card{padding:20px}}
+</style>
+</head>
+<body>
+<header>
+ <div class="top"><h1>Hourly Production Pro</h1><button id="installBtn" class="install hidden">Install App</button></div>
+ <p>Garments · Hourly Production Planning & Simulation</p>
+</header>
+<main>
+ <section class="card">
+  <h2>নতুন Distribution তৈরি করুন</h2>
+  <label for="total">মোট PCS</label>
+  <input id="total" type="number" min="1" max="1000000000" step="1" value="10020" inputmode="numeric">
+  <div class="grid">
+   <div><label for="start">শুরুর সময়</label><input id="start" type="time" value="08:00"></div>
+   <div><label for="end">শেষের সময়</label><input id="end" type="time" value="19:00"></div>
+   <div><label for="breakHours">বিরতি (ঘণ্টা)</label><select id="breakHours"><option value="1">১ ঘণ্টা</option><option value="2">২ ঘণ্টা</option><option value="0">বিরতি নেই</option></select></div>
+   <div><label for="breakAt">বিরতি শুরুর সময়</label><input id="breakAt" type="time" value="13:00"></div>
+  </div>
+  <button id="generate" class="primary">✦ Generate Planning Distribution</button>
+  <div id="error" class="error" role="alert"></div>
+  <div class="notice">এটি planning / simulation-এর জন্য। বাস্তব উৎপাদনের রিপোর্টে অবশ্যই প্রকৃত ঘণ্টাভিত্তিক PCS লিখবেন; অনুমানকে actual production হিসেবে দেখাবেন না।</div>
+ </section>
+
+ <section id="result" class="card hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:13px">
+   <h2 style="margin:0">Hourly Distribution</h2><span class="pill">PLANNING SAMPLE</span>
+  </div>
+  <div class="stats">
+   <div class="stat"><b id="totalStat">0</b><span>মোট PCS</span></div>
+   <div class="stat"><b id="hoursStat">0</b><span>কাজের ঘণ্টা</span></div>
+   <div class="stat"><b id="avgStat">0</b><span>গড় / ঘণ্টা</span></div>
+  </div>
+  <div style="overflow-x:auto;margin-top:12px">
+   <table><thead><tr><th>সময়</th><th>PCS</th></tr></thead><tbody id="tbody"></tbody><tfoot><tr><td>সর্বমোট</td><td id="sum">0</td></tr></tfoot></table>
+  </div>
+  <div class="actions">
+   <button id="again" class="secondary">↻ নতুন বণ্টন</button>
+   <button id="copy" class="secondary">Copy Report</button>
+   <button id="csv" class="secondary">Export CSV</button>
+   <button id="share" class="secondary">Share</button>
+  </div>
+  <p id="status" class="small" aria-live="polite"></p>
+ </section>
+
+ <section class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+   <h2 style="margin:0">Report History</h2><button id="clearHistory" class="secondary" style="font-size:12px;padding:8px 10px">Clear</button>
+  </div>
+  <div id="history" class="small" style="margin-top:10px">এখনো কোনো রিপোর্ট সংরক্ষিত নেই।</div>
+ </section>
+ <p class="small" style="text-align:center">ডেটা এই ডিভাইসের ব্রাউজারে সংরক্ষিত হয়। Browser data মুছে ফেললে History হারাতে পারে।</p>
+</main>
+<footer>Hourly Production Pro · Offline-ready PWA</footer>
+<script>
+(() => {
+ const $=id=>document.getElementById(id);
+ const fmt=n=>Number(n).toLocaleString('en-US');
+ let current=null, history=JSON.parse(localStorage.getItem('hpp_history')||'[]');
+ const pad=n=>String(n).padStart(2,'0');
+ const toMin=s=>{const [h,m]=s.split(':').map(Number);return h*60+m};
+ const toTime=m=>pad(Math.floor(m/60)%24)+':'+pad(m%60);
+ function randomParts(total,count){
+   if(total<count){ // For tiny totals, zeroes are unavoidable; distribute units randomly.
+     const a=Array(count).fill(0);
+     for(let i=0;i<total;i++)a[Math.floor(Math.random()*count)]++;
+     return a;
+   }
+   const weights=Array.from({length:count},()=>0.84+Math.random()*0.32);
+   const denom=weights.reduce((a,b)=>a+b,0);
+   const exact=weights.map(w=>total*w/denom);
+   const vals=exact.map(Math.floor);
+   let rem=total-vals.reduce((a,b)=>a+b,0);
+   const order=exact.map((x,i)=>({i,f:x-Math.floor(x),r:Math.random()})).sort((a,b)=>b.f-a.f||a.r-b.r);
+   for(let i=0;i<rem;i++)vals[order[i].i]++;
+   for(let i=vals.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[vals[i],vals[j]]=[vals[j],vals[i]];}
+   return vals;
+ }
+ function build(){
+   $('error').textContent='';
+   const total=Number($('total').value),start=toMin($('start').value),end=toMin($('end').value);
+   const br=Number($('breakHours').value),breakAt=toMin($('breakAt').value);
+   if(!Number.isSafeInteger(total)||total<1||total>1e9){$('error').textContent='১ থেকে ১,০০,০০,০০,০০০-এর মধ্যে পূর্ণ PCS সংখ্যা দিন।';return;}
+   if(end<=start){$('error').textContent='শেষের সময় শুরুর সময়ের পরে হতে হবে।';return;}
+   const duration=end-start,breakM=br*60;
+   if(breakM>=duration){$('error').textContent='বিরতির সময় মোট সময়ের চেয়ে কম হতে হবে।';return;}
+   if(br && (breakAt<start||breakAt+breakM>end)){$('error').textContent='বিরতির সময় কাজের সময়সীমার মধ্যে রাখুন।';return;}
+   const slots=[];
+   for(let t=start;t<end;t+=60){
+     const next=Math.min(t+60,end);
+     const overlap=br?Math.max(0,Math.min(next,breakAt+breakM)-Math.max(t,breakAt)):0;
+     const work=next-t-overlap;
+     if(work>0)slots.push({from:t,to:next,work,break:overlap});
+   }
+   if(!slots.length){$('error').textContent='কাজের সময় পাওয়া যায়নি।';return;}
+   // The total is distributed by working-minute weight, so partial hours are handled fairly.
+   const weights=slots.map(s=>s.work*(0.84+Math.random()*0.32));
+   const sumW=weights.reduce((a,b)=>a+b,0);
+   const exact=weights.map(w=>total*w/sumW),vals=exact.map(Math.floor);
+   let rem=total-vals.reduce((a,b)=>a+b,0);
+   const order=exact.map((x,i)=>({i,f:x-Math.floor(x),r:Math.random()})).sort((a,b)=>b.f-a.f||a.r-b.r);
+   for(let i=0;i<rem;i++)vals[order[i].i]++;
+   current={total,slots:slots.map((s,i)=>({...s,value:vals[i]})),start:$('start').value,end:$('end').value,breakHours:br,breakAt:$('breakAt').value,created:new Date().toLocaleString()};
+   render();saveHistory();
+ }
+ function render(){
+   $('tbody').innerHTML='';
+   current.slots.forEach(s=>{
+     const tr=document.createElement('tr'),a=document.createElement('td'),b=document.createElement('td');
+     a.textContent=toTime(s.from)+'–'+toTime(s.to)+(s.break?' (বিরতির অংশ)':'');
+     b.textContent=fmt(s.value);tr.append(a,b);$('tbody').append(tr);
+   });
+   $('totalStat').textContent=fmt(current.total);
+   $('hoursStat').textContent=current.slots.reduce((a,s)=>a+s.work,0)/60;
+   $('avgStat').textContent=fmt(Math.round(current.total/current.slots.length));
+   $('sum').textContent=fmt(current.slots.reduce((a,s)=>a+s.value,0));
+   $('result').classList.remove('hidden');$('status').textContent='যোগফল যাচাই সম্পন্ন। এটি planning sample.';
+ }
+ function reportText(r=current){
+   return 'HOURLY PRODUCTION PLANNING SAMPLE\n'+r.slots.map(s=>`${toTime(s.from)}-${toTime(s.to)} : ${s.value} PCS`).join('\n')+`\nTOTAL : ${r.total} PCS\nPLANNING SAMPLE — NOT ACTUAL PRODUCTION`;
+ }
+ function saveHistory(){
+   history.unshift(current);history=history.slice(0,20);
+   localStorage.setItem('hpp_history',JSON.stringify(history));renderHistory();
+ }
+ function renderHistory(){
+   const box=$('history');box.innerHTML='';
+   if(!history.length){box.textContent='এখনো কোনো রিপোর্ট সংরক্ষিত নেই।';return;}
+   history.forEach((r,i)=>{
+     const div=document.createElement('div');div.className='history-item';
+     const info=document.createElement('span');info.textContent=`${fmt(r.total)} PCS · ${r.created}`;
+     const btn=document.createElement('button');btn.className='secondary';btn.textContent='Open';
+     btn.onclick=()=>{current=r;render();window.scrollTo({top:0,behavior:'smooth'});};
+     div.append(info,btn);box.append(div);
+   });
+ }
+ $('generate').onclick=build;$('again').onclick=build;
+ $('copy').onclick=async()=>{if(!current)return;try{await navigator.clipboard.writeText(reportText());$('status').textContent='রিপোর্ট কপি হয়েছে।';}catch(e){$('status').textContent='Copy অনুমতি পাওয়া যায়নি।';}};
+ $('csv').onclick=()=>{if(!current)return;const rows=[['Time','PCS'],...current.slots.map(s=>[toTime(s.from)+'-'+toTime(s.to),s.value]),['TOTAL',current.total]];
+   const csv='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\n');
+   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='hourly-production-planning.csv';a.click();URL.revokeObjectURL(a.href);};
+ $('share').onclick=async()=>{if(!current)return;const data={title:'Hourly Production Planning',text:reportText()};if(navigator.share){try{await navigator.share(data);}catch(e){}}else{$('status').textContent='এই ব্রাউজারে Share নেই; Copy ব্যবহার করুন।';}};
+ $('clearHistory').onclick=()=>{if(confirm('সব History মুছে ফেলবেন?')){history=[];localStorage.removeItem('hpp_history');renderHistory();}};
+ renderHistory();
+ if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
+ let installEvent=null;
+ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvent=e;$('installBtn').classList.remove('hidden');});
+ $('installBtn').onclick=async()=>{if(!installEvent)return;installEvent.prompt();await installEvent.userChoice;installEvent=null;$('installBtn').classList.add('hidden');};
+ window.addEventListener('appinstalled',()=>$('installBtn').classList.add('hidden'));
+ build();
+})();
+</script>
+</body></html>
