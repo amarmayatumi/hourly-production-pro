@@ -35,8 +35,12 @@ button{border:0;border-radius:12px;padding:12px 14px;font:inherit;font-weight:75
 .stat b{display:block;font-size:18px}.stat span{font-size:11px;color:var(--muted)}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 7px;border-bottom:1px solid var(--line);text-align:left}th:last-child,td:last-child{text-align:right}tfoot td{font-weight:800;border-top:2px solid var(--line)}
 .pill{display:inline-block;background:var(--soft);border-radius:99px;padding:5px 9px;font-size:11px;font-weight:750;color:var(--green)}
-.history-item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
-.history-item:last-child{border:0}.history-item button{padding:7px 10px;font-size:12px}
+.view-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.view-switch button.active{background:var(--green);color:#fff;border-color:var(--green)}
+.horizontal-wrap{overflow-x:auto;margin-top:12px}
+.horizontal-table{min-width:100%;width:max-content}
+.horizontal-table th,.horizontal-table td{text-align:center;min-width:66px}
+.horizontal-table tfoot td{font-weight:800}
 .error{color:#d34b42;font-size:12px;margin-top:8px}
 footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 12px 22px}
 @media(min-width:560px){main{padding-top:22px}.card{padding:20px}}
@@ -72,8 +76,15 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 12px 22px
    <div class="stat"><b id="hoursStat">0</b><span>কাজের ঘণ্টা</span></div>
    <div class="stat"><b id="avgStat">0</b><span>গড় / ঘণ্টা</span></div>
   </div>
-  <div style="overflow-x:auto;margin-top:12px">
+  <div class="view-switch">
+   <button id="verticalBtn" class="secondary active" type="button">Vertical Report</button>
+   <button id="horizontalBtn" class="secondary" type="button">Horizontal Report</button>
+  </div>
+  <div id="verticalReport" style="overflow-x:auto;margin-top:12px">
    <table><thead><tr><th>সময়</th><th>PCS</th></tr></thead><tbody id="tbody"></tbody><tfoot><tr><td>সর্বমোট</td><td id="sum">0</td></tr></tfoot></table>
+  </div>
+  <div id="horizontalReport" class="horizontal-wrap hidden">
+   <table class="horizontal-table"><tbody><tr id="horizontalTimes"></tr><tr id="horizontalValues"></tr></tbody><tfoot><tr><td id="horizontalSum"></td></tr></tfoot></table>
   </div>
   <div class="actions">
    <button id="again" class="secondary">↻ নতুন বণ্টন</button>
@@ -84,20 +95,14 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 12px 22px
   <p id="status" class="small" aria-live="polite"></p>
  </section>
 
- <section class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-   <h2 style="margin:0">Report History</h2><button id="clearHistory" class="secondary" style="font-size:12px;padding:8px 10px">Clear</button>
-  </div>
-  <div id="history" class="small" style="margin-top:10px">এখনো কোনো রিপোর্ট সংরক্ষিত নেই।</div>
- </section>
- <p class="small" style="text-align:center">ডেটা এই ডিভাইসের ব্রাউজারে সংরক্ষিত হয়। Browser data মুছে ফেললে History হারাতে পারে।</p>
+ <p class="small" style="text-align:center">Copy করলে শুধু PCS সংখ্যাগুলো কপি হবে।</p>
 </main>
 <footer>Hourly Production Pro · Offline-ready PWA</footer>
 <script>
 (() => {
  const $=id=>document.getElementById(id);
  const fmt=n=>Number(n).toLocaleString('en-US');
- let current=null, history=JSON.parse(localStorage.getItem('hpp_history')||'[]');
+ let current=null, viewMode='vertical';
  const pad=n=>String(n).padStart(2,'0');
  const toMin=s=>{const [h,m]=s.split(':').map(Number);return h*60+m};
  const toTime=m=>pad(Math.floor(m/60)%24)+':'+pad(m%60);
@@ -142,7 +147,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 12px 22px
    const order=exact.map((x,i)=>({i,f:x-Math.floor(x),r:Math.random()})).sort((a,b)=>b.f-a.f||a.r-b.r);
    for(let i=0;i<rem;i++)vals[order[i].i]++;
    current={total,slots:slots.map((s,i)=>({...s,value:vals[i]})),start:$('start').value,end:$('end').value,breakHours:br,breakAt:$('breakAt').value,created:new Date().toLocaleString()};
-   render();saveHistory();
+   render();
  }
  function render(){
    $('tbody').innerHTML='';
@@ -155,59 +160,57 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 12px 22px
    $('hoursStat').textContent=current.slots.reduce((a,s)=>a+s.work,0)/60;
    $('avgStat').textContent=fmt(Math.round(current.total/current.slots.length));
    $('sum').textContent=fmt(current.slots.reduce((a,s)=>a+s.value,0));
-   $('result').classList.remove('hidden');$('status').textContent='যোগফল যাচাই সম্পন্ন। এটি planning sample.';
+   const timeRow=$('horizontalTimes'),valueRow=$('horizontalValues');
+   timeRow.innerHTML='';valueRow.innerHTML='';
+   current.slots.forEach(s=>{
+     const th=document.createElement('th'),td=document.createElement('td');
+     th.textContent=toTime(s.from)+'–'+toTime(s.to);
+     td.textContent=fmt(s.value);
+     timeRow.append(th);valueRow.append(td);
+   });
+   $('horizontalSum').textContent='মোট: '+fmt(current.total);
+   $('result').classList.remove('hidden');
+   setView(viewMode);
+   $('status').textContent='যোগফল যাচাই সম্পন্ন। এটি planning sample.';
  }
+ function setView(mode){
+   viewMode=mode;
+   const horizontal=mode==='horizontal';
+   $('verticalReport').classList.toggle('hidden',horizontal);
+   $('horizontalReport').classList.toggle('hidden',!horizontal);
+   $('verticalBtn').classList.toggle('active',!horizontal);
+   $('horizontalBtn').classList.toggle('active',horizontal);
+   $('copy').textContent=horizontal?'Copy PCS Row':'Copy PCS Column';
+ }
+ $('verticalBtn').onclick=()=>setView('vertical');
+ $('horizontalBtn').onclick=()=>setView('horizontal');
  function reportText(r=current){
    return 'HOURLY PRODUCTION PLANNING SAMPLE\n'+r.slots.map(s=>`${toTime(s.from)}-${toTime(s.to)} : ${s.value} PCS`).join('\n')+`\nTOTAL : ${r.total} PCS\nPLANNING SAMPLE — NOT ACTUAL PRODUCTION`;
- }
- function saveHistory(){
-   history.unshift(current);history=history.slice(0,20);
-   localStorage.setItem('hpp_history',JSON.stringify(history));renderHistory();
- }
- function renderHistory(){
-   const box=$('history');box.innerHTML='';
-   if(!history.length){box.textContent='এখনো কোনো রিপোর্ট সংরক্ষিত নেই।';return;}
-   history.forEach((r,i)=>{
-     const div=document.createElement('div');div.className='history-item';
-     const info=document.createElement('span');info.textContent=`${fmt(r.total)} PCS · ${r.created}`;
-     const btn=document.createElement('button');btn.className='secondary';btn.textContent='Open';
-     btn.onclick=()=>{current=r;render();window.scrollTo({top:0,behavior:'smooth'});};
-     div.append(info,btn);box.append(div);
-   });
  }
  $('generate').onclick=build;$('again').onclick=build;
  $('copy').onclick=async()=>{
    if(!current)return;
-   const column=current.slots.slice(0,10).map(s=>String(s.value)).join('\n');
+   const values=current.slots.map(s=>String(s.value));
+   const clipboardText=viewMode==='horizontal'?values.join('\t'):values.join('\n');
    try{
-     if(navigator.clipboard && window.isSecureContext){
-       await navigator.clipboard.writeText(column);
-     }else{
-       throw new Error('Clipboard unavailable');
-     }
+     if(navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(clipboardText);
+     else throw new Error('Clipboard unavailable');
    }catch(e){
      const area=document.createElement('textarea');
-     area.value=column;
-     area.setAttribute('readonly','');
-     area.style.position='fixed';
-     area.style.opacity='0';
-     document.body.appendChild(area);
-     area.select();
-     const copied=document.execCommand('copy');
-     area.remove();
-     if(!copied){
-       $('status').textContent='Copy হয়নি। আবার চেষ্টা করুন।';
-       return;
-     }
+     area.value=clipboardText;area.setAttribute('readonly','');
+     area.style.position='fixed';area.style.opacity='0';
+     document.body.appendChild(area);area.select();
+     const copied=document.execCommand('copy');area.remove();
+     if(!copied){$('status').textContent='Copy হয়নি। আবার চেষ্টা করুন।';return;}
    }
-   $('status').textContent='১০ ঘণ্টার PCS সংখ্যা কপি হয়েছে। Excel-এ Paste করুন।';
+   $('status').textContent=viewMode==='horizontal'
+     ?'শুধু PCS সংখ্যা পাশাপাশি কপি হয়েছে। Excel-এ Paste করুন।'
+     :'শুধু PCS সংখ্যা ওপর-নিচে কপি হয়েছে। Excel-এ Paste করুন।';
  };
  $('csv').onclick=()=>{if(!current)return;const rows=[['Time','PCS'],...current.slots.map(s=>[toTime(s.from)+'-'+toTime(s.to),s.value]),['TOTAL',current.total]];
    const csv='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\n');
    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='hourly-production-planning.csv';a.click();URL.revokeObjectURL(a.href);};
  $('share').onclick=async()=>{if(!current)return;const data={title:'Hourly Production Planning',text:reportText()};if(navigator.share){try{await navigator.share(data);}catch(e){}}else{$('status').textContent='এই ব্রাউজারে Share নেই; Copy ব্যবহার করুন।';}};
- $('clearHistory').onclick=()=>{if(confirm('সব History মুছে ফেলবেন?')){history=[];localStorage.removeItem('hpp_history');renderHistory();}};
- renderHistory();
  if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
  let installEvent=null;
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvent=e;$('installBtn').classList.remove('hidden');});
