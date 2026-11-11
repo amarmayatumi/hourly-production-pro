@@ -176,7 +176,32 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 12px 22px
    });
  }
  $('generate').onclick=build;$('again').onclick=build;
- $('copy').onclick=async()=>{if(!current)return;const column=current.slots.map(s=>String(s.value)).join('\n');try{await navigator.clipboard.writeText(column);$('status').textContent='সব PCS একসঙ্গে কপি হয়েছে। Excel-এ Paste করুন।';}catch(e){$('status').textContent='Copy অনুমতি পাওয়া যায়নি।';}};
+ $('copy').onclick=async()=>{
+   if(!current)return;
+   const column=current.slots.slice(0,10).map(s=>String(s.value)).join('\n');
+   try{
+     if(navigator.clipboard && window.isSecureContext){
+       await navigator.clipboard.writeText(column);
+     }else{
+       throw new Error('Clipboard unavailable');
+     }
+   }catch(e){
+     const area=document.createElement('textarea');
+     area.value=column;
+     area.setAttribute('readonly','');
+     area.style.position='fixed';
+     area.style.opacity='0';
+     document.body.appendChild(area);
+     area.select();
+     const copied=document.execCommand('copy');
+     area.remove();
+     if(!copied){
+       $('status').textContent='Copy হয়নি। আবার চেষ্টা করুন।';
+       return;
+     }
+   }
+   $('status').textContent='১০ ঘণ্টার PCS সংখ্যা কপি হয়েছে। Excel-এ Paste করুন।';
+ };
  $('csv').onclick=()=>{if(!current)return;const rows=[['Time','PCS'],...current.slots.map(s=>[toTime(s.from)+'-'+toTime(s.to),s.value]),['TOTAL',current.total]];
    const csv='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\n');
    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='hourly-production-planning.csv';a.click();URL.revokeObjectURL(a.href);};
