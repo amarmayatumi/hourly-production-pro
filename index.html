@@ -77,7 +77,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 12px 22px
   </div>
   <div class="actions">
    <button id="again" class="secondary">↻ নতুন বণ্টন</button>
-   <button id="copy" class="secondary">Copy Report</button>
+   <button id="copy" class="secondary">Copy PCS Column</button>
    <button id="csv" class="secondary">Export CSV</button>
    <button id="share" class="secondary">Share</button>
   </div>
@@ -176,7 +176,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 12px 22px
    });
  }
  $('generate').onclick=build;$('again').onclick=build;
- $('copy').onclick=async()=>{if(!current)return;try{await navigator.clipboard.writeText(reportText());$('status').textContent='রিপোর্ট কপি হয়েছে।';}catch(e){$('status').textContent='Copy অনুমতি পাওয়া যায়নি।';}};
+ $('copy').onclick=async()=>{if(!current)return;const column=current.slots.map(s=>String(s.value)).join('\n');try{await navigator.clipboard.writeText(column);$('status').textContent='সব PCS একসঙ্গে কপি হয়েছে। Excel-এ Paste করুন।';}catch(e){$('status').textContent='Copy অনুমতি পাওয়া যায়নি।';}};
  $('csv').onclick=()=>{if(!current)return;const rows=[['Time','PCS'],...current.slots.map(s=>[toTime(s.from)+'-'+toTime(s.to),s.value]),['TOTAL',current.total]];
    const csv='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\n');
    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='hourly-production-planning.csv';a.click();URL.revokeObjectURL(a.href);};
